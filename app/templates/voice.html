@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voice Tester — Responsible AI System</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+
+  <style>
+    /* ---- Voice-page extras ---- */
+    .voice-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 36px 20px 28px;
+      background: #0f1728;
+      border: 1px solid #202b44;
+      border-radius: 18px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .record-btn {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 3px solid #596dff;
+      background: linear-gradient(135deg,#3d2dcc,#1a6bff);
+      color: white;
+      font-size: 36px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .15s, box-shadow .15s;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .record-btn:hover   { transform: scale(1.06); }
+    .record-btn.active  {
+      background: linear-gradient(135deg,#cc2d2d,#ff4040);
+      border-color: #ff4040;
+      animation: pulse-ring 1.2s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(255,64,64,.5); }
+      70%  { box-shadow: 0 0 0 20px rgba(255,64,64,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,64,64,0); }
+    }
+    .record-timer {
+      font-size: 13px;
+      color: #8290ac;
+      font-variant-numeric: tabular-nums;
+      min-height: 20px;
+    }
+    .record-timer.running { color: #ff7d98; }
+
+    /* waveform bars */
+    .waveform {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 32px;
+    }
+    .waveform span {
+      display: block;
+      width: 3px;
+      border-radius: 3px;
+      background: #596dff;
+      height: 6px;
+      transition: height .08s;
+    }
+    .waveform.active span { animation: wave-bar .6s ease-in-out infinite alternate; }
+    .waveform span:nth-child(2)  { animation-delay: .08s; }
+    .waveform span:nth-child(3)  { animation-delay: .16s; }
+    .waveform span:nth-child(4)  { animation-delay: .24s; }
+    .waveform span:nth-child(5)  { animation-delay: .32s; }
+    .waveform span:nth-child(6)  { animation-delay: .40s; }
+    .waveform span:nth-child(7)  { animation-delay: .48s; }
+    .waveform span:nth-child(8)  { animation-delay: .56s; }
+    @keyframes wave-bar {
+      from { height: 4px;  }
+      to   { height: 28px; }
+    }
+
+    /* pipeline stages */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stage {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-size: 11px;
+      color: #65738e;
+      background: #0f1728;
+      border: 1px solid #1e2a42;
+      transition: background .3s, color .3s;
+    }
+    .stage .stage-icon { font-size: 15px; }
+    .stage.done    { background:#0e302a; color:#64e1b4; border-color:#1a4a38; }
+    .stage.active  { background:#182138; color:#a0b4ff; border-color:#3a4e80;
+                     animation: stage-pulse 1s ease-in-out infinite alternate; }
+    .stage.error   { background:#351822; color:#ff7f9a; border-color:#5a2233; }
+    @keyframes stage-pulse { from{opacity:.7} to{opacity:1} }
+    .stage-arrow { color:#2e3a55; font-size:14px; padding:0 4px; }
+
+    /* config panel */
+    .voice-config { margin-bottom: 16px; }
+    .config-toggle {
+      background:none; border:1px solid #26304a;
+      color:#8794ad; font-size:11px;
+      padding:8px 13px; border-radius:8px; cursor:pointer;
+      margin-bottom:10px;
+    }
+    .config-body {
+      background:#0f1728; border:1px solid #202b44;
+      border-radius:14px; padding:18px;
+      display:none;
+    }
+    .config-body.open { display:block; }
+
+    /* output cards */
+    .voice-output-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      margin-bottom:16px;
+    }
+    .out-card {
+      background:#0f1728;
+      border:1px solid #202b44;
+      border-radius:14px;
+      padding:18px;
+    }
+    .out-card .out-label {
+      font-size:10px;
+      color:#7f8ca7;
+      font-weight:700;
+      letter-spacing:.8px;
+      text-transform:uppercase;
+      margin-bottom:10px;
+    }
+    .out-card .out-text {
+      font-size:12px;
+      line-height:1.65;
+      color:#c7d0e1;
+      white-space:pre-wrap;
+      min-height:60px;
+    }
+    .out-card .out-text.empty { color:#65738e; font-style:italic; }
+
+    /* audio player */
+    .audio-row {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:12px;
+    }
+    .play-btn {
+      background:linear-gradient(135deg,#6e5cf6,#4b8dff);
+      color:white; border:none;
+      border-radius:8px;
+      padding:8px 14px;
+      font-size:11px;
+      cursor:pointer;
+    }
+    .play-btn:disabled { opacity:.5; cursor:default; }
+    audio { display:none; }
+
+    /* score bar cards */
+    .score-grid {
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-bottom:16px;
+    }
+    .score-card {
+      background:#0f1728;
+      border:1px solid #202b44;
+      border-radius:12px;
+      padding:14px;
+      text-align:center;
+    }
+    .score-card .s-label { font-size:10px; color:#7f8ca7; margin-bottom:6px; display:block; }
+    .score-card .s-val   { font-size:22px; font-weight:800; }
+    .score-card .s-bar   {
+      height:5px; background:#1a2439;
+      border-radius:20px; overflow:hidden;
+      margin-top:8px;
+    }
+    .score-card .s-bar i {
+      display:block; height:100%;
+      border-radius:20px;
+      background:linear-gradient(90deg,#725cff,#28d7a1);
+      transition:width .5s;
+    }
+    .score-card.low  .s-val { color:#64e1b4; }
+    .score-card.med  .s-val { color:#f2ca65; }
+    .score-card.high .s-val { color:#ff7f9a; }
+
+    /* risk badge */
+    .risk-badge {
+      display:inline-block;
+      padding:7px 14px;
+      border-radius:8px;
+      font-size:12px;
+      font-weight:800;
+      margin-bottom:14px;
+    }
+    .risk-badge.low  { background:#0e302a; color:#64e1b4; }
+    .risk-badge.medium { background:#342a10; color:#f2ca65; }
+    .risk-badge.high { background:#351822; color:#ff7f9a; }
+
+    /* history table */
+    .history-section { margin-top:4px; }
+
+    /* latency pill row */
+    .latency-row {
+      display:flex; gap:8px; flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .latency-pill {
+      background:#111a2c;
+      border:1px solid #222e48;
+      border-radius:999px;
+      padding:5px 10px;
+      font-size:10px;
+      color:#8b98b1;
+    }
+    .latency-pill b { color:#c7d0e1; }
+
+    @media(max-width:900px) {
+      .voice-output-grid { grid-template-columns:1fr; }
+      .score-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media(max-width:600px) {
+      .score-grid { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">RA</div>
+      <div><b>Responsible AI</b><span>LLM Quality Center</span></div>
+    </div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a class="active" href="/voice">Voice Tester</a>
+    </nav>
+    <div class="source-card">
+      <small>VOICE MODULE</small>
+      <p>Record → Transcribe → LLM → Evaluate → Speak</p>
+      <span>Full voice pipeline with responsible-AI scoring</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">RESPONSIBLE AI SYSTEM</div>
+        <h1>Voice Model Tester</h1>
+        <p>Record your voice &rarr; AI transcribes it &rarr; chosen LLM responds &rarr; evaluated for bias, toxicity, hallucination &amp; fairness &rarr; read back to you.</p>
+      </div>
+      <div class="status"><i></i>Voice pipeline ready</div>
+    </header>
+
+    <!-- PIPELINE STAGES -->
+    <div class="pipeline">
+      <div class="stage" id="st-record"><span class="stage-icon">🎤</span> Record</div>
+      <span class="stage-arrow">&rsaquo;</span>
+      <div class="stage" id="st-transcribe"><span class="stage-icon">📝</span> Transcribe</div>
+      <span class="stage-arrow">&rsaquo;</span>
+      <div class="stage" id="st-generate"><span class="stage-icon">🤖</span> Generate</div>
+      <span class="stage-arrow">&rsaquo;</span>
+      <div class="stage" id="st-evaluate"><span class="stage-icon">⚖️</span> Evaluate</div>
+      <span class="stage-arrow">&rsaquo;</span>
+      <div class="stage" id="st-speak"><span class="stage-icon">🔊</span> Speak</div>
+    </div>
+
+    <!-- RECORD HERO -->
+    <div class="voice-hero">
+      <button class="record-btn" id="recordBtn" title="Click to start recording">🎤</button>
+      <div class="waveform" id="waveform">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="record-timer" id="recordTimer">Click the mic to start recording</div>
+    </div>
+
+    <!-- CONFIG PANEL (collapsible) -->
+    <div class="voice-config">
+      <button class="config-toggle" id="configToggle">⚙️  Configuration (LLM &amp; STT settings)</button>
+      <div class="config-body" id="configBody">
+        <div class="form-grid" style="margin-bottom:12px">
+          <label>
+            STT Provider
+            <select id="sttProvider">
+              <option value="groq">Groq Whisper (recommended — fast &amp; free tier)</option>
+              <option value="openai">OpenAI Whisper</option>
+            </select>
+          </label>
+          <label>
+            STT API Key
+            <span class="hint">optional if set in .env</span>
+            <input id="sttKey" type="password" placeholder="Paste Groq / OpenAI key for transcription">
+          </label>
+        </div>
+        <div class="form-grid" style="margin-bottom:12px">
+          <label>
+            LLM Provider
+            <select id="provider"></select>
+          </label>
+          <label id="modelLabel">
+            LLM Model
+            <select id="model"></select>
+          </label>
+        </div>
+
+        <!-- Custom fields — visible only when Other is selected -->
+        <div id="customFields" style="display:none;margin-bottom:12px">
+          <div class="form-grid">
+            <label>
+              Custom Model Name
+              <input id="customModel" type="text" placeholder="e.g. gpt-4o, llama-3.3-70b, mistral-7b">
+            </label>
+            <label>
+              Base URL
+              <span class="hint">optional — defaults to OpenAI</span>
+              <input id="customBaseUrl" type="text" placeholder="https://api.openai.com/v1">
+            </label>
+          </div>
+        </div>
+        <label>
+          LLM API Key
+          <span class="hint" id="keyHint"></span>
+          <input id="apiKey" type="password" placeholder="Paste key for this session (optional if saved in .env)">
+        </label>
+        <div class="actions" style="margin-top:10px">
+          <button class="secondary" id="saveKeyBtn">Save Keys in Browser</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ERROR BOX -->
+    <div id="error" class="error hidden"></div>
+
+    <!-- OUTPUT CARDS -->
+    <div class="voice-output-grid">
+      <div class="out-card">
+        <div class="out-label">🎤 Your voice transcript</div>
+        <div class="out-text empty" id="transcriptOut">Your spoken words will appear here after transcription.</div>
+      </div>
+      <div class="out-card">
+        <div class="out-label">🤖 AI response</div>
+        <div class="out-text empty" id="responseOut">The model’s reply will appear here.</div>
+        <div class="audio-row">
+          <button class="play-btn" id="playBtn" disabled>▶ Play Response</button>
+          <button class="play-btn" id="stopBtn" disabled
+            style="background:linear-gradient(135deg,#8b0000,#cc2222);display:none">
+            &#9646;&#9646; Stop
+          </button>
+          <audio id="audioPlayer"></audio>
+          <span style="font-size:10px;color:#65738e" id="audioStatus"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LATENCY ROW -->
+    <div class="latency-row" id="latencyRow" style="display:none">
+      <div class="latency-pill">STT: <b id="sttMs">—</b></div>
+      <div class="latency-pill">LLM: <b id="llmMs">—</b></div>
+      <div class="latency-pill">TTS: <b id="ttsMs">—</b></div>
+      <div class="latency-pill">Total: <b id="totalMs">—</b></div>
+    </div>
+
+    <!-- RISK + SCORES -->
+    <div id="riskRow" style="display:none;margin-bottom:10px">
+      <span class="risk-badge" id="riskBadge">LOW</span>
+    </div>
+
+    <div class="score-grid" id="scoreGrid" style="display:none">
+      <div class="score-card" id="sc-bias">
+        <span class="s-label">Bias</span>
+        <div class="s-val" id="sv-bias">0%</div>
+        <div class="s-bar"><i id="sb-bias" style="width:0%"></i></div>
+      </div>
+      <div class="score-card" id="sc-tox">
+        <span class="s-label">Toxicity</span>
+        <div class="s-val" id="sv-tox">0%</div>
+        <div class="s-bar"><i id="sb-tox" style="width:0%"></i></div>
+      </div>
+      <div class="score-card" id="sc-hall">
+        <span class="s-label">Hallucination</span>
+        <div class="s-val" id="sv-hall">0%</div>
+        <div class="s-bar"><i id="sb-hall" style="width:0%"></i></div>
+      </div>
+      <div class="score-card" id="sc-fair">
+        <span class="s-label">Fairness Risk</span>
+        <div class="s-val" id="sv-fair">0%</div>
+        <div class="s-bar"><i id="sb-fair" style="width:0%"></i></div>
+      </div>
+    </div>
+
+    <!-- EXPLAINABILITY -->
+    <div class="panel" id="explainPanel" style="display:none;margin-bottom:16px">
+      <div class="panel-head">
+        <div><h2>Why was it flagged?</h2><p>Heuristic explanation of the AI’s response.</p></div>
+      </div>
+      <div id="explainContent"></div>
+    </div>
+
+    <!-- HISTORY TABLE -->
+    <section class="panel history-section">
+      <div class="panel-head">
+        <div><h2>Voice Run History</h2><p>All voice evaluations this session.</p></div>
+        <button class="secondary" id="exportBtn">Generate PDF Report</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Transcript</th>
+              <th>Provider / Model</th>
+              <th>Bias</th>
+              <th>Toxicity</th>
+              <th>Hallucination</th>
+              <th>Fairness</th>
+              <th>Risk</th>
+              <th>LLM ms</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="9" class="empty">No voice runs yet. Hit the mic above to start!</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- REPORT LINKS -->
+    <div id="reportLinks" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"></div>
+    <div id="reportLoading" class="error" style="display:none;border-color:#26304a;background:#111a2c;color:#8290ac">Generating reports…</div>
+
+  </main>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================= -->
+<script>
+const PROVIDERS = {{ providers|tojson }};
+
+let voiceResults = [];
+let mediaRecorder = null;
+let audioChunks  = [];
+let timerInterval = null;
+let recSeconds   = 0;
+let isRecording  = false;
+let lastAudioBlob = null;
+
+// latency tracking
+let t0Total = 0;
+let sttElapsed = 0;
+let llmElapsed = 0;
+let ttsElapsed = 0;
+
+// ----------------------------------------------------------------
+// UTIL
+// ----------------------------------------------------------------
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[c]);
+}
+function $(id) { return document.getElementById(id); }
+
+// ----------------------------------------------------------------
+// CONFIG TOGGLE
+// ----------------------------------------------------------------
+$('configToggle').onclick = () => {
+  $('configBody').classList.toggle('open');
+};
+
+// ----------------------------------------------------------------
+// PROVIDER SETUP
+// ----------------------------------------------------------------
+const providerEl = $('provider');
+const modelEl   = $('model');
+const keyEl     = $('apiKey');
+const hintEl    = $('keyHint');
+
+Object.entries(PROVIDERS).forEach(([id, p]) => {
+  const opt = document.createElement('option');
+  opt.value = id;
+  opt.textContent = p.label + (p.paid ? ' · API key' : ' · local/free');
+  providerEl.appendChild(opt);
+});
+if (PROVIDERS.ollama) providerEl.value = 'ollama';
+
+function updateModels() {
+  const p = PROVIDERS[providerEl.value];
+  if (!p) return;
+  modelEl.innerHTML = '';
+  p.models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    modelEl.appendChild(opt);
+  });
+  hintEl.textContent = p.paid ? 'required unless in .env' : 'not required for Ollama';
+  keyEl.value = localStorage.getItem('rai_key_' + providerEl.value) || '';
+
+  // Show / hide custom fields
+  const isOther = providerEl.value === 'other';
+  $('customFields').style.display = isOther ? 'block' : 'none';
+  $('modelLabel').style.display   = isOther ? 'none'  : 'block';
+}
+providerEl.addEventListener('change', updateModels);
+updateModels();
+
+$('saveKeyBtn').onclick = () => {
+  const k = keyEl.value.trim();
+  const sk = $('sttKey').value.trim();
+  if (k)  localStorage.setItem('rai_key_' + providerEl.value, k);
+  else    localStorage.removeItem('rai_key_' + providerEl.value);
+  if (sk) localStorage.setItem('rai_stt_key_' + $('sttProvider').value, sk);
+  alert('Keys saved in this browser only.');
+};
+
+// Restore saved STT key
+$('sttProvider').addEventListener('change', () => {
+  $('sttKey').value = localStorage.getItem('rai_stt_key_' + $('sttProvider').value) || '';
+});
+$('sttKey').value = localStorage.getItem('rai_stt_key_groq') || '';
+
+// ----------------------------------------------------------------
+// STAGE HELPERS
+// ----------------------------------------------------------------
+function stageReset() {
+  ['st-record','st-transcribe','st-generate','st-evaluate','st-speak']
+    .forEach(id => { const el=$(id); el.classList.remove('done','active','error'); });
+}
+function stageDone(id)   { const el=$(id); el.classList.remove('active','error'); el.classList.add('done'); }
+function stageActive(id) { $(id).classList.add('active'); }
+function stageError(id)  { const el=$(id); el.classList.remove('active','done'); el.classList.add('error'); }
+
+// ----------------------------------------------------------------
+// TIMER
+// ----------------------------------------------------------------
+function startTimer() {
+  recSeconds = 0;
+  updateTimer();
+  timerInterval = setInterval(() => { recSeconds++; updateTimer(); }, 1000);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+function updateTimer() {
+  const m = String(Math.floor(recSeconds/60)).padStart(2,'0');
+  const s = String(recSeconds % 60).padStart(2,'0');
+  $('recordTimer').textContent = `Recording… ${m}:${s}`;
+}
+
+// ----------------------------------------------------------------
+// RECORDING
+// ----------------------------------------------------------------
+$('recordBtn').onclick = async () => {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+};
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      lastAudioBlob = blob;
+      runPipeline(blob);
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    $('recordBtn').classList.add('active');
+    $('recordBtn').textContent = '⏹';
+    $('recordTimer').classList.add('running');
+    $('waveform').classList.add('active');
+    startTimer();
+    stageReset();
+    stageActive('st-record');
+  } catch (e) {
+    if (e.name === 'SecurityError' || e.name === 'NotAllowedError') {
+  showError(
+    '🔒 Microphone blocked by browser. ' +
+    'Make sure you are on http://localhost:5000 (not 127.0.0.1 or an IP address). ' +
+    'Browsers only allow mic access on localhost or HTTPS. Error: ' + e.message
+  );
+} else if (e.name === 'NotFoundError') {
+  showError('❌ No microphone found. Please connect a mic and try again.');
+} else {
+  showError('Microphone error (' + e.name + '): ' + e.message);
+}
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  stopTimer();
+  $('recordBtn').classList.remove('active');
+  $('recordBtn').textContent = '🎤';
+  $('recordTimer').classList.remove('running');
+  $('recordTimer').textContent = 'Processing…';
+  $('waveform').classList.remove('active');
+}
+
+// ----------------------------------------------------------------
+// FULL PIPELINE
+// ----------------------------------------------------------------
+async function runPipeline(audioBlob) {
+  showError('');
+  t0Total = Date.now();
+  stageDone('st-record');
+
+  // --- 1. TRANSCRIBE ---
+  stageActive('st-transcribe');
+  let transcript;
+  try {
+    const sttStart = Date.now();
+    transcript = await transcribeAudio(audioBlob);
+    sttElapsed = Date.now() - sttStart;
+    stageDone('st-transcribe');
+    setOutput('transcriptOut', transcript);
+  } catch (e) {
+    stageError('st-transcribe');
+    showError('Transcription failed: ' + e.message);
+    $('recordTimer').textContent = 'Click the mic to try again';
+    return;
+  }
+
+  // --- 2. GENERATE ---
+  stageActive('st-generate');
+  let result;
+  try {
+    const llmStart = Date.now();
+    result = await runLLM(transcript);
+    llmElapsed = Date.now() - llmStart;
+    stageDone('st-generate');
+    setOutput('responseOut', result.response);
+  } catch (e) {
+    stageError('st-generate');
+    showError('LLM call failed: ' + e.message);
+    $('recordTimer').textContent = 'Click the mic to try again';
+    return;
+  }
+
+  // --- 3. EVALUATE ---
+  stageActive('st-evaluate');
+  try {
+    renderScores(result.evaluation);
+    renderExplain(result);
+    voiceResults.push(result);
+    renderHistory();
+    stageDone('st-evaluate');
+  } catch (e) {
+    stageError('st-evaluate');
+    showError('Evaluation render error: ' + e.message);
+  }
+
+  // --- 4. TTS ---
+  stageActive('st-speak');
+  try {
+    const ttsStart = Date.now();
+    await speakText(result.response);
+    ttsElapsed = Date.now() - ttsStart;
+    stageDone('st-speak');
+  } catch (e) {
+    // TTS failure is non-fatal — fall back to browser speech
+    console.warn('Server TTS failed, using browser speech:', e);
+    browserSpeak(result.response);
+    ttsElapsed = 0;
+    stageDone('st-speak');
+  }
+
+  // latency
+  const totalElapsed = Date.now() - t0Total;
+  $('latencyRow').style.display = 'flex';
+  $('sttMs').textContent   = sttElapsed + ' ms';
+  $('llmMs').textContent   = result.latency_ms + ' ms';
+  $('ttsMs').textContent   = ttsElapsed ? ttsElapsed + ' ms' : 'browser';
+  $('totalMs').textContent = totalElapsed + ' ms';
+
+  $('recordTimer').textContent = 'Done! Click the mic to test again.';
+}
+
+// ----------------------------------------------------------------
+// TRANSCRIBE  (calls /api/voice/transcribe)
+// ----------------------------------------------------------------
+async function transcribeAudio(blob) {
+  const fd = new FormData();
+  fd.append('audio', blob, 'recording.webm');
+  fd.append('stt_provider', $('sttProvider').value);
+  const sttKey = $('sttKey').value.trim()
+                 || localStorage.getItem('rai_stt_key_' + $('sttProvider').value)
+                 || '';
+  if (sttKey) fd.append('api_key', sttKey);
+
+  const res  = await fetch('/api/voice/transcribe', { method:'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Transcription request failed');
+  return data.transcript;
+}
+
+// ----------------------------------------------------------------
+// RUN LLM   (reuses existing /api/run endpoint)
+// ----------------------------------------------------------------
+async function runLLM(prompt) {
+  const provider = providerEl.value;
+  const key = keyEl.value.trim() || localStorage.getItem('rai_key_' + provider) || '';
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider,
+      model: provider === 'other'
+        ? ($('customModel').value.trim() + '|' + ($('customBaseUrl').value.trim() || 'https://api.openai.com/v1'))
+        : modelEl.value,
+      api_key: key,
+      prompt
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'LLM request failed');
+  return data;
+}
+
+// ----------------------------------------------------------------
+// TEXT-TO-SPEECH  (calls /api/voice/speak)
+// Truncate to 500 chars so TTS stays fast even for long replies
+// ----------------------------------------------------------------
+const TTS_LIMIT = 500;
+
+async function speakText(text) {
+  const truncated  = text.length > TTS_LIMIT;
+  const spokenText = truncated ? text.slice(0, TTS_LIMIT) + '...' : text;
+
+  const res = await fetch('/api/voice/speak', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: spokenText })
+  });
+  if (!res.ok) throw new Error('TTS server error');
+  const blob = await res.blob();
+  const url  = URL.createObjectURL(blob);
+  const player = $('audioPlayer');
+
+  // Stop any previous playback cleanly
+  player.pause();
+  player.src = url;
+
+  $('audioStatus').textContent = truncated
+    ? `Speaking first ${TTS_LIMIT} chars (truncated for speed)`
+    : 'Playing…';
+
+    setupPlayStop('server', spokenText);
+
+  // Wait until browser has buffered before auto-playing
+  player.addEventListener('canplay', function onReady() {
+    player.removeEventListener('canplay', onReady);
+    player.play().catch(() => {
+      $('audioStatus').textContent = 'Click ▶ to play';
+    });
+  }, { once: true });
+}
+
+function browserSpeak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();          // stop any previous utterance
+  const truncated  = text.length > TTS_LIMIT;
+  const spokenText = truncated ? text.slice(0, TTS_LIMIT) + '...' : text;
+  const utt = new SpeechSynthesisUtterance(spokenText);
+  utt.lang = 'en-US';
+  window.speechSynthesis.speak(utt);
+  $('audioStatus').textContent = truncated
+    ? `Speaking first ${TTS_LIMIT} chars via browser TTS`
+    : 'Playing via browser TTS';
+  setupPlayStop('browser', spokenText);
+}
+
+// ----------------------------------------------------------------
+// PLAY / STOP WIRING  (called after every new response)
+// ----------------------------------------------------------------
+function setupPlayStop(mode, spokenText) {
+  const playBtn = $('playBtn');
+  const stopBtn = $('stopBtn');
+  const player  = $('audioPlayer');
+
+  playBtn.disabled = false;
+  stopBtn.disabled = false;
+
+  function showStop() { stopBtn.style.display = ''; playBtn.style.display = 'none'; }
+  function showPlay() { playBtn.style.display = ''; stopBtn.style.display = 'none'; }
+
+  // Start with Play visible — Stop only appears when audio ACTUALLY starts
+  showPlay();
+
+  if (mode === 'server') {
+    // on* assignments self-replace — no listener stacking, no cloning needed
+    player.onplay  = showStop;
+    player.onpause = showPlay;
+    player.onended = () => { showPlay(); $('audioStatus').textContent = 'Finished ✓'; };
+
+    playBtn.onclick = () => player.play();
+    stopBtn.onclick = () => {
+      player.pause();
+      player.currentTime = 0;
+      $('audioStatus').textContent = 'Stopped';
+    };
+
+  } else {
+    // Browser TTS mode
+    playBtn.onclick = () => {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(spokenText);
+      u.lang = 'en-US';
+      u.onstart = showStop;
+      u.onend   = () => { showPlay(); $('audioStatus').textContent = 'Finished ✓'; };
+      window.speechSynthesis.speak(u);
+    };
+    stopBtn.onclick = () => {
+      window.speechSynthesis.cancel();
+      showPlay();
+      $('audioStatus').textContent = 'Stopped';
+    };
+  }
+}
+
+// ----------------------------------------------------------------
+// RENDER HELPERS
+// ----------------------------------------------------------------
+function setOutput(id, text) {
+  const el = $(id);
+  el.textContent = text || '—';
+  el.classList.remove('empty');
+}
+
+function renderScores(ev) {
+  $('scoreGrid').style.display = 'grid';
+  $('riskRow').style.display   = 'block';
+
+  const risk = (ev.risk_level || 'LOW').toLowerCase();
+  const badge = $('riskBadge');
+  badge.textContent = ev.risk_level + '  —  ' + ev.overall_risk_score + '% overall';
+  badge.className = 'risk-badge ' + risk;
+
+  function setScore(suffix, val) {
+    const level = val >= 60 ? 'high' : val >= 30 ? 'med' : 'low';
+    $('sc-' + suffix).className = 'score-card ' + level;
+    $('sv-' + suffix).textContent = val + '%';
+    $('sb-' + suffix).style.width = val + '%';
+  }
+  setScore('bias',  ev.bias);
+  setScore('tox',   ev.toxicity);
+  setScore('hall',  ev.hallucination);
+  setScore('fair',  ev.fairness);
+}
+
+function renderExplain(result) {
+  const ev = result.evaluation;
+  $('explainPanel').style.display = 'block';
+  $('explainContent').innerHTML = `
+    <h3 style="font-size:11px;color:#aeb9cc;margin:0 0 8px">Why flagged</h3>
+    <ul style="padding-left:18px;margin:0 0 14px">
+      ${(ev.explanation||[]).map(i=>`<li style="font-size:11px;line-height:1.6;color:#8f9bb2">${esc(i)}</li>`).join('')}
+    </ul>
+    <h3 style="font-size:11px;color:#aeb9cc;margin:0 0 8px">Mitigation</h3>
+    <div class="chips">
+      ${(ev.mitigation||[]).map(i=>`<span>${esc(i)}</span>`).join('')}
+    </div>
+  `;
+}
+
+function renderHistory() {
+  const body = $('historyBody');
+  if (!voiceResults.length) {
+    body.innerHTML = '<tr><td colspan="9" class="empty">No voice runs yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = voiceResults.map((r, i) => {
+    const ev = r.evaluation;
+    return `<tr>
+      <td>${i+1}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.prompt)}">${esc(r.prompt)}</td>
+      <td><b>${esc(r.provider_label)}</b><small>${esc(r.model)}</small></td>
+      <td>${ev.bias}%</td>
+      <td>${ev.toxicity}%</td>
+      <td>${ev.hallucination}%</td>
+      <td>${ev.fairness}%</td>
+      <td><span class="risk-tag ${ev.risk_level.toLowerCase()}">${esc(ev.risk_level)}</span></td>
+      <td>${esc(r.latency_ms)} ms</td>
+    </tr>`;
+  }).join('');
+}
+
+function showError(msg) {
+  const el = $('error');
+  if (!msg) { el.classList.add('hidden'); el.textContent=''; return; }
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// ----------------------------------------------------------------
+// PDF REPORT
+// ----------------------------------------------------------------
+$('exportBtn').onclick = async () => {
+  if (!voiceResults.length) { alert('Run at least one voice test first.'); return; }
+  $('reportLoading').style.display = 'block';
+  $('exportBtn').disabled = true;
+  $('exportBtn').textContent = 'Generating…';
+  try {
+    const res  = await fetch('/api/report', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ results: voiceResults })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Report failed');
+    $('reportLinks').innerHTML = `
+      <a href="${data.pdf_url}" class="report-links a" download
+         style="background:#172033;color:white;padding:10px 14px;border-radius:9px;text-decoration:none;font-size:11px;font-weight:700">
+        📥 Download PDF Report
+      </a>
+      <a href="${data.html_url}" target="_blank"
+         style="background:#182138;color:#c7d0e1;padding:10px 14px;border-radius:9px;text-decoration:none;font-size:11px">
+        📄 Open HTML Report
+      </a>
+      <a href="${data.json_url}" download
+         style="background:#111a2c;color:#8b98b1;padding:10px 14px;border-radius:9px;text-decoration:none;font-size:11px">
+        📊 Download JSON
+      </a>`;
+  } catch(e) {
+    showError('Report error: ' + e.message);
+  } finally {
+    $('reportLoading').style.display = 'none';
+    $('exportBtn').disabled = false;
+    $('exportBtn').textContent = 'Generate PDF Report';
+  }
+};
+</script>
+
+</body>
+</html>
