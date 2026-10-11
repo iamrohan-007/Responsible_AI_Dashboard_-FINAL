@@ -40,7 +40,6 @@ def evaluate(prompt, answer, reference=None):
 
     toxicity = min(100, len(toxic_hits) * 25)
 
-    # This is intentionally a heuristic risk indicator, not a factual truth detector.
     numbers = len(re.findall(r"\b\d+(?:\.\d+)?%?\b", text))
     absolute_claims = len(re.findall(r"\b(always|never|everyone|nobody|all|none)\b", low))
     citations = len(re.findall(r"https?://|doi:|\[[0-9]+\]", text))

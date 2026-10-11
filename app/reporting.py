@@ -17,9 +17,7 @@ from reportlab.platypus import (
 )
 
 
-# ---------------------------------------------------------
 # REPORT DIRECTORY
-# ---------------------------------------------------------
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORTS_DIR = os.path.join(BASE_DIR, "reports")
@@ -27,18 +25,14 @@ REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 
-# ---------------------------------------------------------
 # FILE NAME
-# ---------------------------------------------------------
 
 def make_report_name(extension):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return f"responsible_ai_report_{timestamp}.{extension}"
 
 
-# ---------------------------------------------------------
 # JSON REPORT
-# ---------------------------------------------------------
 
 def save_json(results, summary):
     filename = make_report_name("json")
@@ -57,10 +51,7 @@ def save_json(results, summary):
 
     return filename
 
-
-# ---------------------------------------------------------
 # HTML REPORT
-# ---------------------------------------------------------
 
 def save_html(results, summary):
     filename = make_report_name("html")
@@ -420,9 +411,7 @@ th {{
     return filename
 
 
-# ---------------------------------------------------------
 # PDF REPORT
-# ---------------------------------------------------------
 
 def save_pdf(results, summary):
     filename = make_report_name("pdf")
@@ -487,9 +476,7 @@ def save_pdf(results, summary):
 
     story = []
 
-    # -----------------------------------------------------
     # TITLE
-    # -----------------------------------------------------
 
     story.append(
         Paragraph(
@@ -512,9 +499,7 @@ def save_pdf(results, summary):
         )
     )
 
-    # -----------------------------------------------------
     # SUMMARY
-    # -----------------------------------------------------
 
     overall_risk = summary.get("overall_risk", "N/A")
     total = summary.get("total", len(results))
@@ -583,9 +568,7 @@ def save_pdf(results, summary):
     story.append(summary_table)
     story.append(Spacer(1, 12))
 
-    # -----------------------------------------------------
     # RISK GUIDE
-    # -----------------------------------------------------
 
     story.append(
         Paragraph(
@@ -637,9 +620,7 @@ def save_pdf(results, summary):
 
     story.append(risk_table)
 
-    # -----------------------------------------------------
     # INDIVIDUAL RESULTS
-    # -----------------------------------------------------
 
     for index, result in enumerate(results, start=1):
 
@@ -843,9 +824,7 @@ def save_pdf(results, summary):
                 )
             )
 
-    # -----------------------------------------------------
     # BUILD PDF
-    # -----------------------------------------------------
 
     doc.build(story)
 

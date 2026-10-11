@@ -11,9 +11,8 @@ import tempfile
 bp = Blueprint("main", __name__)
 
 
-# ---------------------------------------------------------
+
 # MAIN DASHBOARD
-# ---------------------------------------------------------
 
 @bp.get("/")
 def index():
@@ -22,10 +21,7 @@ def index():
         providers=PROVIDERS
     )
 
-
-# ---------------------------------------------------------
 # VOICE TESTER PAGE
-# ---------------------------------------------------------
 
 @bp.get("/voice")
 def voice():
@@ -35,18 +31,14 @@ def voice():
     )
 
 
-# ---------------------------------------------------------
 # PROVIDERS API
-# ---------------------------------------------------------
 
 @bp.get("/api/providers")
 def providers():
     return jsonify(PROVIDERS)
 
 
-# ---------------------------------------------------------
 # RUN MODEL + EVALUATION
-# ---------------------------------------------------------
 
 @bp.post("/api/run")
 def run():
@@ -100,9 +92,7 @@ def run():
         return jsonify({"error": str(exc)}), 502
 
 
-# ---------------------------------------------------------
-# VOICE  —  TRANSCRIBE AUDIO  (STT)
-# ---------------------------------------------------------
+# VOICE  —  TRANSCRIBE AUDIO(STT)
 
 @bp.post("/api/voice/transcribe")
 def voice_transcribe():
@@ -121,7 +111,6 @@ def voice_transcribe():
     stt_provider = request.form.get("stt_provider", "groq")
     api_key = request.form.get("api_key") or None
 
-    # Save to a temp file so SDKs can read it
     suffix = ".webm"
     original = audio_file.filename or ""
     if "." in original:
@@ -136,7 +125,7 @@ def voice_transcribe():
         transcript = _transcribe(tmp_path, stt_provider, api_key)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 502   # ← now returns proper JSON
+        return jsonify({"error": str(e)}), 502  
 
     finally:
         if tmp_path:
@@ -151,7 +140,7 @@ def voice_transcribe():
 def _transcribe(path, provider, api_key):
     """Call the appropriate Whisper endpoint and return the transcript."""
 
-    # ---- Groq Whisper ----
+    # Groq Whisper
     if provider == "groq":
         key = api_key or os.getenv("GROQ_API_KEY", "")
         if not key:
@@ -165,7 +154,7 @@ def _transcribe(path, provider, api_key):
             )
         return result.text
 
-    # ---- OpenAI Whisper ----
+    #  OpenAI Whisper
     if provider == "openai":
         key = api_key or os.getenv("OPENAI_API_KEY", "")
         if not key:
@@ -182,9 +171,7 @@ def _transcribe(path, provider, api_key):
     raise RuntimeError(f"Unknown STT provider: {provider}")
 
 
-# ---------------------------------------------------------
 # VOICE  —  TEXT TO SPEECH  (TTS)
-# ---------------------------------------------------------
 
 @bp.post("/api/voice/speak")
 def voice_speak():
@@ -214,9 +201,7 @@ def voice_speak():
         return jsonify({"error": f"TTS failed: {exc}"}), 502
 
 
-# ---------------------------------------------------------
 # GENERATE REPORTS
-# ---------------------------------------------------------
 
 @bp.post("/api/report")
 def report():
@@ -249,9 +234,7 @@ def report():
         return jsonify({"error": f"Could not generate report: {str(exc)}"}), 500
 
 
-# ---------------------------------------------------------
 # SERVE GENERATED REPORT FILES
-# ---------------------------------------------------------
 
 @bp.get("/reports/<path:name>")
 def report_file(name):

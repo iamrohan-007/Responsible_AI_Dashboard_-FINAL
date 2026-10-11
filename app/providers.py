@@ -163,7 +163,6 @@ def run_model(provider, model, prompt, api_key=None):
     if provider == "other":
         key = api_key or ""
         base_url = os.getenv("OTHER_BASE_URL", "https://api.openai.com/v1")
-        # model may contain a pipe-separated base_url: "model|base_url"
         if "|" in (model or ""):
             model, base_url = model.split("|", 1)
         if not key:
@@ -174,7 +173,7 @@ def run_model(provider, model, prompt, api_key=None):
 
     raise RuntimeError(f"Unknown provider: {provider}")
 
-# append "other" provider
+# "other" provider
 PROVIDERS["other"] = {
     "label": "Other (Custom OpenAI-compatible)",
     "env": "",
