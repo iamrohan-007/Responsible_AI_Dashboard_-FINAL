@@ -7,3 +7,4 @@ google-genai==1.39.1
 groq==0.33.0
 reportlab==4.4.3
 gTTS==2.5.3
+gunicorn
