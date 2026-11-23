@@ -523,7 +523,81 @@
       </section>
 
 
+            <!-- LOCAL OLLAMA SETUP GUIDE -->
 
+      <section id="local-ollama" class="panel">
+
+        <div class="panel-head">
+          <div>
+            <h2>Connect Your Local Ollama</h2>
+            <p>
+              Run AI models directly on your own computer
+              and evaluate their responses using this dashboard.
+            </p>
+          </div>
+          <span class="pill">LOCAL AI</span>
+        </div>
+
+        <div class="recommendations">
+
+          <div>
+            <b>Step 1 — Install Ollama</b>
+            <span>
+              Download and install Ollama for your operating system.
+              <a href="https://ollama.com/download" target="_blank">
+                Download Ollama
+              </a>
+            </span>
+          </div>
+
+          <div>
+            <b>Step 2 — Download a model</b>
+            <span>
+              Open your terminal or Command Prompt and run:
+              <code>ollama pull gemma3</code>
+            </span>
+          </div>
+
+          <div>
+            <b>Step 3 — Allow this website</b>
+            <span>
+              Configure the OLLAMA_ORIGINS environment variable
+              to allow:
+              <code>https://responsible-ai-dashboard.onrender.com</code>
+            </span>
+          </div>
+
+          <div>
+            <b>Step 4 — Restart Ollama</b>
+            <span>
+              Quit Ollama completely and open it again.
+            </span>
+          </div>
+
+          <div>
+            <b>Step 5 — Run an evaluation</b>
+            <span>
+              Return to the Model Tester, select Ollama,
+              choose your installed model and click Run Evaluation.
+            </span>
+          </div>
+
+        </div>
+
+        <div class="report-success">
+          Your AI model runs on your own computer.
+          You do not need an Ollama API key.
+        </div>
+
+        <p class="hint">
+          Important: Each visitor must install Ollama, download a model
+          and configure their own computer. This dashboard cannot install
+          or configure Ollama automatically.
+        </p>
+
+      </section>
+
+      <!-- END LOCAL OLLAMA SETUP GUIDE -->
       <!-- CHARTS -->
 
       <section class="grid-two">
