@@ -1714,58 +1714,95 @@
           '';
 
 
-        const response =
-          await fetch(
-            '/api/run',
-            {
 
-              method: 'POST',
+let data;
 
-              headers: {
-                'Content-Type':
-                  'application/json'
-              },
+if (provider === 'ollama') {
+  // Connect directly to Ollama on the user's computer
+  const startTime = performance.now();
 
-              body: JSON.stringify({
+  const localResponse = await fetch(
+    'http://localhost:11434/api/chat',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: modelEl.value,
+        messages: [
+          {
+            role: 'user',
+            content: document.getElementById('prompt').value
+          }
+        ],
+        stream: false
+      })
+    }
+  );
 
-                provider: provider,
+  if (!localResponse.ok) {
+    throw new Error('Ollama returned an error. Check that Ollama is running and the model is installed.');
+  }
 
-                model: provider === 'other'
-                  ? (document.getElementById('customModel').value.trim() +
-                     '|' +
-                     (document.getElementById('customBaseUrl').value.trim() || 'https://api.openai.com/v1'))
-                  : modelEl.value,
+  const ollamaData = await localResponse.json();
+  const latency = Math.round(performance.now() - startTime);
 
-                api_key: key,
+  // Send Ollama's response to Flask for evaluation
+  const evaluationResponse = await fetch('/api/evaluate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      prompt: document.getElementById('prompt').value,
+      response: ollamaData.message?.content || '',
+      reference: document.getElementById('reference').value,
+      model: modelEl.value,
+      latency_ms: latency,
+      usage: {
+        input_tokens: ollamaData.prompt_eval_count,
+        output_tokens: ollamaData.eval_count
+      }
+    })
+  });
 
-                prompt:
-                  document.getElementById(
-                    'prompt'
-                  ).value,
+  data = await evaluationResponse.json();
 
-                reference:
-                  document.getElementById(
-                    'reference'
-                  ).value
+  if (!evaluationResponse.ok) {
+    throw new Error(data.error || 'Evaluation failed');
+  }
 
-              })
+} else {
+  // Keep existing cloud provider connection
+  const response = await fetch('/api/run', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      provider: provider,
+      model: provider === 'other'
+        ? (
+            document.getElementById('customModel').value.trim() +
+            '|' +
+            (document.getElementById('customBaseUrl').value.trim() ||
+             'https://api.openai.com/v1')
+          )
+        : modelEl.value,
+      api_key: key,
+      prompt: document.getElementById('prompt').value,
+      reference: document.getElementById('reference').value
+    })
+  });
 
-            }
-          );
+  data = await response.json();
 
+  if (!response.ok) {
+    throw new Error(data.error || 'Request failed');
+  }
+}
 
-        const data =
-          await response.json();
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            'Request failed'
-          );
-
-        }
 
 
         results.push(data);
