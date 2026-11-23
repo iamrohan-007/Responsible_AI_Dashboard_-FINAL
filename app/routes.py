@@ -92,6 +92,40 @@ def run():
         return jsonify({"error": str(exc)}), 502
 
 
+
+# EVALUATE A RESPONSE FROM LOCAL OLLAMA
+@bp.post("/api/evaluate")
+def evaluate_local_response():
+    data = request.get_json(force=True) or {}
+
+    prompt = (data.get("prompt") or "").strip()
+    response_text = (data.get("response") or "").strip()
+    reference = data.get("reference") or None
+    model = data.get("model") or "Ollama"
+
+    if not prompt or not response_text:
+        return jsonify({
+            "error": "Prompt and response are required."
+        }), 400
+
+    try:
+        evaluation = evaluate(prompt, response_text, reference)
+
+        return jsonify({
+            "provider": "ollama",
+            "provider_label": "Ollama (local)",
+            "model": model,
+            "prompt": prompt,
+            "response": response_text,
+            "latency_ms": data.get("latency_ms", 0),
+            "usage": data.get("usage", {}),
+            "evaluation": evaluation
+        })
+
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 # VOICE  —  TRANSCRIBE AUDIO(STT)
 
 @bp.post("/api/voice/transcribe")
